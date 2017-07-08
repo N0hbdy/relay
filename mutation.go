@@ -40,14 +40,14 @@ func MutationWithClientMutationID(config MutationConfig) *graphql.Field {
 		augmentedInputFields = graphql.InputObjectConfigFieldMap{}
 	}
 	augmentedInputFields["clientMutationId"] = &graphql.InputObjectFieldConfig{
-		Type: graphql.NewNonNull(graphql.String),
+		Type: graphql.String,
 	}
 	augmentedOutputFields := config.OutputFields
 	if augmentedOutputFields == nil {
 		augmentedOutputFields = graphql.Fields{}
 	}
 	augmentedOutputFields["clientMutationId"] = &graphql.Field{
-		Type: graphql.NewNonNull(graphql.String),
+		Type: graphql.String,
 	}
 
 	inputType := graphql.NewInputObject(graphql.InputObjectConfig{
