@@ -1,12 +1,15 @@
 package relay_test
 
 import (
+	"errors"
 	"fmt"
+	"reflect"
+	"testing"
+
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/testutil"
 	"github.com/graphql-go/relay"
-	"reflect"
-	"testing"
+	"golang.org/x/net/context"
 )
 
 type photo2 struct {
@@ -29,25 +32,29 @@ var globalIDTestUserType *graphql.Object
 var globalIDTestPhotoType *graphql.Object
 
 var globalIDTestDef = relay.NewNodeDefinitions(relay.NodeDefinitionsConfig{
-	IDFetcher: func(globalID string, info graphql.ResolveInfo) interface{} {
+	IDFetcher: func(globalID string, info graphql.ResolveInfo, ctx context.Context) (interface{}, error) {
 		resolvedGlobalID := relay.FromGlobalID(globalID)
 		if resolvedGlobalID == nil {
-			return nil
+			return nil, errors.New("Unknown node id")
 		}
-		if resolvedGlobalID.Type == "User" {
-			return globalIDTestUserData[resolvedGlobalID.ID]
-		} else {
-			return globalIDTestPhotoData[resolvedGlobalID.ID]
+
+		switch resolvedGlobalID.Type {
+		case "User":
+			return globalIDTestUserData[resolvedGlobalID.ID], nil
+		case "Photo":
+			return globalIDTestPhotoData[resolvedGlobalID.ID], nil
+		default:
+			return nil, errors.New("Unknown node type")
 		}
 	},
-	TypeResolve: func(value interface{}, info graphql.ResolveInfo) *graphql.Object {
-		switch value.(type) {
+	TypeResolve: func(p graphql.ResolveTypeParams) *graphql.Object {
+		switch p.Value.(type) {
 		case *user:
 			return globalIDTestUserType
 		case *photo2:
 			return globalIDTestPhotoType
 		default:
-			panic(fmt.Sprintf("Unknown object type `%v`", value))
+			panic(fmt.Sprintf("Unknown object type `%v`", p.Value))
 		}
 	},
 })
@@ -83,12 +90,12 @@ func init() {
 		},
 		Interfaces: []*graphql.Interface{globalIDTestDef.NodeInterface},
 	})
-	photoIDFetcher := func(obj interface{}, info graphql.ResolveInfo) string {
+	photoIDFetcher := func(obj interface{}, info graphql.ResolveInfo, ctx context.Context) (string, error) {
 		switch obj := obj.(type) {
 		case *photo2:
-			return fmt.Sprintf("%v", obj.PhotoId)
+			return fmt.Sprintf("%v", obj.PhotoId), nil
 		}
-		return ""
+		return "", errors.New("Not a photo")
 	}
 	globalIDTestPhotoType = graphql.NewObject(graphql.ObjectConfig{
 		Name: "Photo",
@@ -103,6 +110,7 @@ func init() {
 
 	globalIDTestSchema, _ = graphql.NewSchema(graphql.SchemaConfig{
 		Query: globalIDTestQueryType,
+		Types: []graphql.Type{globalIDTestUserType, globalIDTestPhotoType},
 	})
 }
 
